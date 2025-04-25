@@ -6,19 +6,25 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
+	"sync"
 )
 
-type Person struct {
-	Name string `json:"name"`
-	LastName string `json:"lastName"`
+type Book struct {
+	Title string `json:"title"`
+	Author string `json:"author"`
 }
 
+var libraryCache = make(map[int]Book)
+
+var cacheMutex sync.RWMutex
 
 func main() {
 	mux := http.NewServeMux()
 	
 	mux.HandleFunc("/", root)
-	mux.HandleFunc("POST /hello", hello)
+	mux.HandleFunc("POST /book", createBook)
+	mux.HandleFunc("GET /book/{id}", getBookById)
 
 	err := http.ListenAndServe(":8080", mux)
 
@@ -36,17 +42,59 @@ func root(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "This is my server root\n")
 }
 
-func hello(w http.ResponseWriter, r *http.Request) {
-	var person Person
-	err := json.NewDecoder(r.Body).Decode(&person)
+func createBook(w http.ResponseWriter, r*http.Request) {
+	fmt.Printf("POST /book\n")
+
+	var book  Book
+
+	err := json.NewDecoder(r.Body).Decode(&book)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	fmt.Printf("POST /hello\n")
-	
+	if book.Title == "" || book.Author == "" {
+		http.Error(w, "title and author is required", http.StatusBadRequest)
+		return
+	}
+
+
+	id := len(libraryCache) + 1
+	cacheMutex.Lock()
+	libraryCache[len(libraryCache) + 1] = book
+	cacheMutex.Unlock()
+
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Hello %s %s!", person.Name, person.LastName)
+	fmt.Fprint(w, id)
 }
+
+func getBookById(w http.ResponseWriter, r *http.Request) {
+	 id, err := strconv.Atoi(r.PathValue("id"))
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cacheMutex.RLock()
+	book, ok := libraryCache[id]
+	cacheMutex.RUnlock()
+
+	if !ok {
+		http.Error(w, "book not found", http.StatusNotFound)
+		return
+	}
+
+	json, err := json.Marshal(book)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("GET /book/%v", id)
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
+}
+
