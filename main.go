@@ -10,9 +10,12 @@ import (
 
 
 func main() {
-	http.HandleFunc("/", root)
+	mux := http.NewServeMux()
+	
+	mux.HandleFunc("/", root)
+	mux.HandleFunc("/hello", helloWorld)
 
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", mux)
 
 	if errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("server has been shutdown\n")
@@ -24,6 +27,11 @@ func main() {
 
 
 func root(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("request: GET /\n")
+	fmt.Printf("GET /\n")
 	io.WriteString(w, "This is my server root\n")
+}
+
+func helloWorld(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("GET /hello\n")
+	io.WriteString(w, "Hello World!")
 }
