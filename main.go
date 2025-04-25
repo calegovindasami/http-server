@@ -11,6 +11,7 @@ import (
 )
 
 type Book struct {
+	ID int `json:"id,omitempty"`
 	Title string `json:"title"`
 	Author string `json:"author"`
 }
@@ -24,6 +25,8 @@ func main() {
 	
 	mux.HandleFunc("/", root)
 	mux.HandleFunc("POST /book", createBook)
+	mux.HandleFunc("DELETE /book/{id}", deleteBook)
+	mux.HandleFunc("GET  /book", getBooks)
 	mux.HandleFunc("GET /book/{id}", getBookById)
 
 	err := http.ListenAndServe(":8080", mux)
@@ -67,6 +70,49 @@ func createBook(w http.ResponseWriter, r*http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, id)
+}
+
+func deleteBook(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cacheMutex.RLock()
+	_, ok := libraryCache[id]
+	cacheMutex.RUnlock()
+
+	if !ok {
+		http.Error(w, "book not found", http.StatusNotFound)
+		return
+	}
+
+	delete(libraryCache, id)
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func getBooks(w http.ResponseWriter, r *http.Request) {
+	books := make([]Book, 0, len(libraryCache))
+
+
+	for id, book := range libraryCache {
+		bookCopy := book
+		book.ID = id
+		books = append(books, bookCopy)
+	}
+
+	json, err := json.Marshal(books)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("GET /book")
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
 }
 
 func getBookById(w http.ResponseWriter, r *http.Request) {
