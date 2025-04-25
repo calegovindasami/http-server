@@ -67,12 +67,14 @@ func createBook(w http.ResponseWriter, r*http.Request) {
 	cacheMutex.Lock()
 	libraryCache[len(libraryCache) + 1] = book
 	cacheMutex.Unlock()
-
+	
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, id)
 }
 
 func deleteBook(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("DELETE /book\n")
+
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -89,17 +91,18 @@ func deleteBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	delete(libraryCache, id)
-
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func getBooks(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("GET /book\n")
+
 	books := make([]Book, 0, len(libraryCache))
 
 
 	for id, book := range libraryCache {
 		bookCopy := book
-		book.ID = id
+		bookCopy.ID = id
 		books = append(books, bookCopy)
 	}
 
@@ -109,13 +112,15 @@ func getBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("GET /book")
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(json)
 }
 
 func getBookById(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("GET /book/{id}\n")
+
+
 	 id, err := strconv.Atoi(r.PathValue("id"))
 
 	if err != nil {
@@ -138,7 +143,6 @@ func getBookById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("GET /book/%v", id)
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(json)
