@@ -1,19 +1,24 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 )
+
+type Person struct {
+	Name string `json:"name"`
+	LastName string `json:"lastName"`
+}
 
 
 func main() {
 	mux := http.NewServeMux()
 	
 	mux.HandleFunc("/", root)
-	mux.HandleFunc("/hello", helloWorld)
+	mux.HandleFunc("POST /hello", hello)
 
 	err := http.ListenAndServe(":8080", mux)
 
@@ -28,10 +33,20 @@ func main() {
 
 func root(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GET /\n")
-	io.WriteString(w, "This is my server root\n")
+	fmt.Fprintf(w, "This is my server root\n")
 }
 
-func helloWorld(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("GET /hello\n")
-	io.WriteString(w, "Hello World!")
+func hello(w http.ResponseWriter, r *http.Request) {
+	var person Person
+	err := json.NewDecoder(r.Body).Decode(&person)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("POST /hello\n")
+	
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Hello %s %s!", person.Name, person.LastName)
 }
